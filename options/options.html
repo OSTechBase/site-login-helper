@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>无感登录 - 管理</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="header-title">
+          <img src="../icons/icon-48.png" alt="无感登录" class="header-logo" />
+          <h1>无感登录</h1>
+        </div>
+        <div class="header-actions">
+          <button class="btn" id="importBtn">导入</button>
+          <button class="btn" id="exportBtn">导出</button>
+          <button class="btn" id="addGroupBtn">+ 新建分组</button>
+          <button class="btn btn-primary" id="addBtn">+ 添加站点</button>
+        </div>
+      </div>
+
+      <div class="site-list" id="siteList">
+        <!-- 站点列表由 JS 动态渲染 -->
+      </div>
+
+      <div class="footer">
+        <div class="footer-version">v1.0</div>
+        <div class="footer-slogan">
+          明镜高悬，自动匹配站点<br />
+          铁面守护，密码绝不乱填<br />
+          多环境登录，一键无感登录
+        </div>
+        <div class="footer-credit">
+          Design by 乐毅<br />
+          由 Claude Code & GLM 强力驱动💗
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加/编辑站点弹窗 -->
+    <div class="modal-overlay hidden" id="modalOverlay">
+      <div class="modal">
+        <h2 id="modalTitle">添加站点</h2>
+        <form id="siteForm">
+          <div class="form-group">
+            <label for="siteName">站点名称</label>
+            <input
+              type="text"
+              id="siteName"
+              placeholder="如：开发环境A"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="siteUrl">URL 关键字</label>
+            <input
+              type="text"
+              id="siteUrl"
+              placeholder="如：10.10.252.11"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="siteUsername">用户名</label>
+            <input type="text" id="siteUsername" placeholder="admin" />
+          </div>
+          <div class="form-group">
+            <label for="sitePassword">密码</label>
+            <input type="password" id="sitePassword" placeholder="••••••••" />
+          </div>
+          <div class="form-group">
+            <label for="siteGroup">所属分组</label>
+            <select id="siteGroup">
+              <!-- 由 JS 动态填充 -->
+            </select>
+          </div>
+          <input type="hidden" id="siteId" />
+          <div class="modal-actions">
+            <button type="button" class="btn" id="cancelBtn">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 添加/编辑分组弹窗 -->
+    <div class="modal-overlay hidden" id="groupModal">
+      <div class="modal" style="width: 320px">
+        <h2 id="groupModalTitle">新建分组</h2>
+        <form id="groupForm">
+          <div class="form-group">
+            <label for="groupName">分组名称</label>
+            <input
+              type="text"
+              id="groupName"
+              placeholder="如：开发环境"
+              required
+            />
+          </div>
+          <input type="hidden" id="groupId" />
+          <div class="modal-actions">
+            <button type="button" class="btn" id="groupCancelBtn">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 移动/复制站点弹窗 -->
+    <div class="modal-overlay hidden" id="moveModal">
+      <div class="modal" style="width: 320px">
+        <h2>移动到分组</h2>
+        <div class="form-group">
+          <label for="moveTargetGroup">目标分组</label>
+          <select id="moveTargetGroup">
+            <!-- 由 JS 动态填充 -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="moveCopyMode" /> 复制（保留原站点）
+          </label>
+        </div>
+        <input type="hidden" id="moveSiteId" />
+        <div class="modal-actions">
+          <button type="button" class="btn" id="moveCancelBtn">取消</button>
+          <button type="button" class="btn btn-primary" id="moveConfirmBtn">
+            确认
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 导入确认弹窗 -->
+    <div class="modal-overlay hidden" id="importModal">
+      <div class="modal">
+        <h2>导入配置</h2>
+        <p style="margin-bottom: 16px; color: var(--text-secondary)">
+          导入将替换现有所有站点配置，确定继续？
+        </p>
+        <div class="form-group">
+          <label for="importFile">选择 JSON 文件</label>
+          <input type="file" id="importFile" accept=".json" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="importCancelBtn">取消</button>
+          <button type="button" class="btn btn-primary" id="importConfirmBtn">
+            确认导入
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>
