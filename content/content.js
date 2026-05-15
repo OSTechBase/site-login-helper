@@ -9,7 +9,7 @@
 
   // 使用原生 setter 设置输入框值（兼容 React）
   function setInputValue(input, value) {
-    if (!input || !value) return;
+    if (!input || value == null) return;
 
     const nativeSetter = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype, 'value'
@@ -100,12 +100,17 @@
   }
 
   // 将 URL 模式转为正则，* 匹配单段内的数字/字母/连字符（不含点和斜杠）
+  // 只对 hostname:port 段做精确匹配（^ $），避免 10.10.1.1 误匹配 10.10.1.10
   function matchUrl(pattern, url) {
     if (!pattern || !url) return false;
-    // 先转义正则特殊字符（排除 *），再把 * 换成单段通配符
+    let target = url;
+    try {
+      const u = new URL(url);
+      target = u.hostname + (u.port ? ':' + u.port : '');
+    } catch (e) {}
     const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-    const regexStr = escaped.replace(/\*/g, '[a-zA-Z0-9-]+');
-    return new RegExp(regexStr).test(url);
+    const regexStr = '^' + escaped.replace(/\*/g, '[a-zA-Z0-9-]+') + '$';
+    return new RegExp(regexStr).test(target);
   }
 
   // 查找匹配的站点配置，支持 * 通配符
@@ -120,9 +125,9 @@
     return null;
   }
 
-  // 执行填充
+  // 执行填充，username/password 任一有值即可，不要求两者都非空
   function fillLogin(site) {
-    if (!site || !site.username || !site.password) return false;
+    if (!site || (!site.username && !site.password)) return false;
 
     const usernameInput = findUsernameInput();
     const passwordInput = findPasswordInput();
@@ -132,17 +137,26 @@
       return false;
     }
 
-    if (usernameInput) {
+    if (usernameInput && site.username) {
       setInputValue(usernameInput, site.username);
       console.log('[站点自动填充] 已填充用户名');
     }
 
-    if (passwordInput) {
+    if (passwordInput && site.password) {
       setInputValue(passwordInput, site.password);
       console.log('[站点自动填充] 已填充密码');
     }
 
     return true;
+  }
+
+  // 从 site 中取出要填充的账号（优先 isDefault，否则取第一条；兼容旧格式）
+  function getAccountFromSite(site) {
+    if (site.accounts && site.accounts.length > 0) {
+      return site.accounts.find(a => a.isDefault) || site.accounts[0];
+    }
+    // 旧格式兼容：直接读顶层 username/password
+    return { username: site.username, password: site.password };
   }
 
   // 主逻辑
@@ -155,7 +169,7 @@
 
       if (matchedSite) {
         console.log(`[站点自动填充] 匹配站点: ${matchedSite.name}`);
-        fillLogin(matchedSite);
+        fillLogin(getAccountFromSite(matchedSite));
       } else {
         console.log('[站点自动填充] 当前页面无匹配站点');
       }
@@ -164,10 +178,16 @@
 
   // 页面加载完成后执行
   // 给页面一点额外时间渲染（有些登录页是动态加载）
-  setTimeout(autoFill, 500);
-
-  // 同时监听 DOM 变化，处理动态加载的登录框
+  // 用 filled 与 observer 共享状态，避免两者都触发时重复填充
   let filled = false;
+  setTimeout(function() {
+    if (!filled) {
+      filled = true;
+      autoFill();
+    }
+  }, 500);
+
+  // 同时监听 DOM 变化，处理动态加载的登录框（早于 500ms 出现时优先触发）
   const observer = new MutationObserver(function(mutations) {
     if (filled) return;
 
@@ -188,7 +208,7 @@
   // 10秒后停止观察
   setTimeout(() => observer.disconnect(), 10000);
 
-  // 监听来自 popup 的手动填充消息
+  // 监听来自 popup 的手动填充消息，直接接收 {username, password}
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'fill' && request.site) {
       const success = fillLogin(request.site);

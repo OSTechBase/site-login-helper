@@ -8,6 +8,15 @@
   // 默认分组 ID
   const DEFAULT_GROUP_ID = 'default';
 
+  // 转义 HTML 特殊字符，防止站点名称/URL 中的特殊字符破坏页面结构
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   // 生成唯一 ID
   function generateId() {
     return Math.random().toString(36).substring(2, 10);
@@ -53,6 +62,33 @@
     });
   }
 
+  // 惰性迁移：旧格式 site 没有 accounts 时，从顶层 username/password 构造一条默认账号
+  // 用 site.id 作为账号 ID 的前缀，保证同一站点每次迁移结果相同，避免 find 找不到
+  function migrateAccounts(site) {
+    if (site.accounts && site.accounts.length > 0) return site.accounts;
+    return [{
+      id: site.id + '_default',
+      label: '默认',
+      username: site.username || '',
+      password: site.password || '',
+      isDefault: true
+    }];
+  }
+
+  // 渲染单个站点的账号子列表 HTML
+  function renderAccountsHtml(accounts) {
+    return accounts.map(acc => `
+      <div class="account-item" data-acc-id="${escapeHtml(acc.id)}">
+        <span class="acc-username">${escapeHtml(acc.username)}${acc.isDefault ? ' <span class="acc-star">★</span>' : ''}</span>
+        <span class="acc-actions">
+          ${!acc.isDefault ? `<button class="btn btn-small" data-action="set-default-account" data-id="${escapeHtml(acc.id)}">设为默认</button>` : ''}
+          <button class="btn btn-small" data-action="edit-account" data-id="${escapeHtml(acc.id)}">编辑</button>
+          <button class="btn btn-small btn-danger" data-action="delete-account" data-id="${escapeHtml(acc.id)}">删除</button>
+        </span>
+      </div>
+    `).join('');
+  }
+
   // 渲染站点列表（按分组）
   function renderSiteList(sites, groups) {
     const listEl = document.getElementById('siteList');
@@ -62,40 +98,44 @@
       return;
     }
 
-    // 按分组渲染
     let html = '';
     groups.forEach(group => {
       const groupSites = sites.filter(s => s.groupId === group.id);
 
       html += `
-        <div class="group-section" data-group-id="${group.id}">
+        <div class="group-section" data-group-id="${escapeHtml(group.id)}">
           <div class="group-header">
             <div>
-              <span class="group-title">${group.name}</span>
+              <span class="group-title">${escapeHtml(group.name)}</span>
               <span class="group-count">${groupSites.length} 个站点</span>
             </div>
             <div class="group-actions">
               ${group.id !== DEFAULT_GROUP_ID ? `
-                <button class="btn" data-action="edit-group" data-id="${group.id}">编辑</button>
-                <button class="btn btn-danger" data-action="delete-group" data-id="${group.id}">删除</button>
+                <button class="btn" data-action="edit-group" data-id="${escapeHtml(group.id)}">编辑</button>
+                <button class="btn btn-danger" data-action="delete-group" data-id="${escapeHtml(group.id)}">删除</button>
               ` : ''}
             </div>
           </div>
           <div class="group-sites">
-            ${groupSites.length > 0 ? groupSites.map(site => `
-              <div class="site-item" data-id="${site.id}">
+            ${groupSites.length > 0 ? groupSites.map(site => {
+              const accounts = migrateAccounts(site);
+              return `
+              <div class="site-item" data-id="${escapeHtml(site.id)}">
                 <div class="site-info">
-                  <div class="site-name">${site.name || '未命名'}</div>
-                  <div class="site-url">${site.url || ''}</div>
-                  <div class="site-credentials">用户名: ${site.username || '-'} | 密码: ${site.password ? '••••••••' : '-'}</div>
+                  <div class="site-name">${escapeHtml(site.name || '未命名')}</div>
+                  <div class="site-url">${escapeHtml(site.url || '')}</div>
                 </div>
                 <div class="site-actions">
-                  <button class="btn btn-small" data-action="edit-site" data-id="${site.id}">编辑</button>
-                  <button class="btn btn-small" data-action="move-site" data-id="${site.id}">移动</button>
-                  <button class="btn btn-small btn-danger" data-action="delete-site" data-id="${site.id}">删除</button>
+                  <button class="btn btn-small" data-action="edit-site" data-id="${escapeHtml(site.id)}">编辑</button>
+                  <button class="btn btn-small" data-action="move-site" data-id="${escapeHtml(site.id)}">移动</button>
+                  <button class="btn btn-small btn-danger" data-action="delete-site" data-id="${escapeHtml(site.id)}">删除</button>
                 </div>
+                <div class="account-list" data-site-id="${escapeHtml(site.id)}">
+                  ${renderAccountsHtml(accounts)}
+                </div>
+                <button class="btn btn-small" data-action="add-account" data-id="${escapeHtml(site.id)}">+ 添加账号</button>
               </div>
-            `).join('') : '<div class="group-empty">暂无站点</div>'}
+            `}).join('') : '<div class="group-empty">暂无站点</div>'}
           </div>
         </div>
       `;
@@ -104,14 +144,12 @@
     listEl.innerHTML = html;
   }
 
-  // 显示站点弹窗
+  // 显示站点弹窗（编辑时只改名称/URL/分组，账号在子列表管理）
   function showModal(title, site = null) {
     document.getElementById('modalTitle').textContent = title;
     document.getElementById('siteId').value = site ? site.id : '';
     document.getElementById('siteName').value = site ? site.name : '';
     document.getElementById('siteUrl').value = site ? site.url : '';
-    document.getElementById('siteUsername').value = site ? site.username : '';
-    document.getElementById('sitePassword').value = site ? site.password : '';
 
     // 渲染分组选择
     getData(function(data) {
@@ -207,15 +245,13 @@
     });
   }
 
-  // 保存站点（添加或编辑）
+  // 保存站点（添加或编辑）；账号字段由账号子列表单独管理
   function saveSite(e) {
     e.preventDefault();
 
     const id = document.getElementById('siteId').value;
     const name = document.getElementById('siteName').value.trim();
     const url = document.getElementById('siteUrl').value.trim();
-    const username = document.getElementById('siteUsername').value.trim();
-    const password = document.getElementById('sitePassword').value;
     const groupId = document.getElementById('siteGroup').value || DEFAULT_GROUP_ID;
 
     if (!name || !url) {
@@ -225,24 +261,27 @@
 
     getData(function(data) {
       if (id) {
-        // 编辑
+        // 编辑：只更新名称/URL/分组，保留 accounts 不变
         const site = data.sites.find(s => s.id === id);
         if (site) {
           site.name = name;
           site.url = url;
-          site.username = username;
-          site.password = password;
           site.groupId = groupId;
         }
       } else {
-        // 添加
+        // 新建站点时自动创建一条默认账号（后续可在子列表中增删）
         data.sites.push({
           id: generateId(),
-          name: name,
-          url: url,
-          username: username,
-          password: password,
-          groupId: groupId
+          name,
+          url,
+          groupId,
+          accounts: [{
+            id: generateId(),
+            label: '默认',
+            username: '',
+            password: '',
+            isDefault: true
+          }]
         });
       }
 
@@ -253,8 +292,108 @@
     });
   }
 
-  // 分组管理
-  // 显示分组弹窗
+  // 显示账号弹窗（添加或编辑）
+  function showAccountModal(siteId, account = null) {
+    document.getElementById('accountModalTitle').textContent = account ? '编辑账号' : '添加账号';
+    document.getElementById('accountSiteId').value = siteId;
+    document.getElementById('accountId').value = account ? account.id : '';
+    document.getElementById('accountUsername').value = account ? account.username : '';
+    document.getElementById('accountPassword').value = account ? account.password : '';
+    document.getElementById('accountModal').classList.remove('hidden');
+  }
+
+  // 隐藏账号弹窗
+  function hideAccountModal() {
+    document.getElementById('accountModal').classList.add('hidden');
+    document.getElementById('accountForm').reset();
+  }
+
+  // 保存账号（添加或编辑）
+  function saveAccount(e) {
+    e.preventDefault();
+
+    const siteId = document.getElementById('accountSiteId').value;
+    const accId = document.getElementById('accountId').value;
+    const username = document.getElementById('accountUsername').value.trim();
+    const password = document.getElementById('accountPassword').value;
+
+    getData(function(data) {
+      const site = data.sites.find(s => s.id === siteId);
+      if (!site) return;
+
+      // 惰性迁移：确保 site.accounts 存在
+      if (!site.accounts || site.accounts.length === 0) {
+        site.accounts = migrateAccounts(site);
+      }
+
+      if (accId) {
+        // 编辑
+        const acc = site.accounts.find(a => a.id === accId);
+        if (acc) {
+          acc.username = username;
+          acc.password = password;
+        }
+      } else {
+        // 添加
+        site.accounts.push({ id: generateId(), username, password, isDefault: false });
+      }
+
+      saveData(data, function() {
+        hideAccountModal();
+        renderSiteList(data.sites, data.groups);
+      });
+    });
+  }
+
+  // 删除账号
+  function deleteAccount(siteId, accId) {
+    getData(function(data) {
+      const site = data.sites.find(s => s.id === siteId);
+      if (!site) return;
+
+      if (!site.accounts) site.accounts = migrateAccounts(site);
+
+      if (site.accounts.length <= 1) {
+        alert('至少保留一个账号');
+        return;
+      }
+
+      if (!confirm('确定删除此账号？')) return;
+
+      const wasDefault = site.accounts.find(a => a.id === accId)?.isDefault;
+      site.accounts = site.accounts.filter(a => a.id !== accId);
+
+      // 删除的是默认账号时，自动把第一条升为默认
+      if (wasDefault && site.accounts.length > 0) {
+        site.accounts[0].isDefault = true;
+      }
+
+      saveData(data, function() {
+        renderSiteList(data.sites, data.groups);
+      });
+    });
+  }
+
+  // 设置默认账号
+  function setDefaultAccount(siteId, accId) {
+    getData(function(data) {
+      const site = data.sites.find(s => s.id === siteId);
+      if (!site) return;
+
+      if (!site.accounts) site.accounts = migrateAccounts(site);
+
+      site.accounts.forEach(a => { a.isDefault = (a.id === accId); });
+
+      saveData(data, function() {
+        renderSiteList(data.sites, data.groups);
+      });
+    });
+  }
+
+  // 从账号按钮向上找到所属 site-item 的 data-id
+  function getSiteIdFromAccountBtn(btn) {
+    return btn.closest('.site-item').dataset.id;
+  }
   function showGroupModal(title, group = null) {
     document.getElementById('groupModalTitle').textContent = title;
     document.getElementById('groupId').value = group ? group.id : '';
@@ -456,6 +595,13 @@
     document.getElementById('importCancelBtn').addEventListener('click', hideImportModal);
     document.getElementById('importConfirmBtn').addEventListener('click', doImport);
 
+    // 账号弹窗事件
+    document.getElementById('accountCancelBtn').addEventListener('click', hideAccountModal);
+    document.getElementById('accountForm').addEventListener('submit', saveAccount);
+    document.getElementById('accountModal').addEventListener('click', function(e) {
+      if (e.target === this) hideAccountModal();
+    });
+
     // 站点列表事件委托（处理所有按钮点击）
     document.getElementById('siteList').addEventListener('click', function(e) {
       const btn = e.target.closest('button[data-action]');
@@ -480,6 +626,33 @@
         case 'delete-group':
           deleteGroup(id);
           break;
+        case 'add-account': {
+          // 找所属 site-item 上的 data-id 作为 siteId
+          const siteId = getSiteIdFromAccountBtn(btn);
+          showAccountModal(siteId);
+          break;
+        }
+        case 'edit-account': {
+          const siteId = getSiteIdFromAccountBtn(btn);
+          getData(function(data) {
+            const site = data.sites.find(s => s.id === siteId);
+            if (!site) return;
+            const accounts = migrateAccounts(site);
+            const acc = accounts.find(a => a.id === id);
+            if (acc) showAccountModal(siteId, acc);
+          });
+          break;
+        }
+        case 'delete-account': {
+          const siteId = getSiteIdFromAccountBtn(btn);
+          deleteAccount(siteId, id);
+          break;
+        }
+        case 'set-default-account': {
+          const siteId = getSiteIdFromAccountBtn(btn);
+          setDefaultAccount(siteId, id);
+          break;
+        }
       }
     });
 

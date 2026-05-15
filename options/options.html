@@ -26,15 +26,15 @@
       </div>
 
       <div class="footer">
-        <div class="footer-version">v1.0</div>
+        <div class="footer-version">v1.2.0</div>
         <div class="footer-slogan">
           明镜高悬，自动匹配站点<br />
           铁面守护，密码绝不乱填<br />
           多环境登录，一键无感登录
         </div>
         <div class="footer-credit">
-          Design by 乐毅<br />
-          由 Claude Code & GLM 强力驱动💗
+          Design by 飞羽<br />
+          由 Claude Code 强力驱动💗
         </div>
       </div>
     </div>
@@ -61,14 +61,6 @@
               placeholder="如：10.10.252.11"
               required
             />
-          </div>
-          <div class="form-group">
-            <label for="siteUsername">用户名</label>
-            <input type="text" id="siteUsername" placeholder="admin" />
-          </div>
-          <div class="form-group">
-            <label for="sitePassword">密码</label>
-            <input type="password" id="sitePassword" placeholder="••••••••" />
           </div>
           <div class="form-group">
             <label for="siteGroup">所属分组</label>
@@ -150,6 +142,29 @@
             确认导入
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- 添加/编辑账号弹窗 -->
+    <div class="modal-overlay hidden" id="accountModal">
+      <div class="modal" style="width: 360px">
+        <h2 id="accountModalTitle">添加账号</h2>
+        <form id="accountForm">
+          <div class="form-group">
+            <label for="accountUsername">用户名</label>
+            <input type="text" id="accountUsername" placeholder="admin" />
+          </div>
+          <div class="form-group">
+            <label for="accountPassword">密码</label>
+            <input type="password" id="accountPassword" placeholder="••••••••" />
+          </div>
+          <input type="hidden" id="accountSiteId" />
+          <input type="hidden" id="accountId" />
+          <div class="modal-actions">
+            <button type="button" class="btn" id="accountCancelBtn">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
       </div>
     </div>
 
