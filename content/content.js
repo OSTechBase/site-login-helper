@@ -1,5 +1,5 @@
 // content.js - 自动填充脚本
-(function() {
+(function () {
   'use strict';
 
   // 生成唯一 ID
@@ -35,6 +35,7 @@
       'input[name="login"]',
       'input[placeholder*="用户名"]',
       'input[placeholder*="账号"]',
+      'input[placeholder*="帐号"]',
       'input[placeholder*="account"]',
       'input[placeholder*="username"]'
     ];
@@ -82,9 +83,9 @@
     if (!element) return false;
     const style = window.getComputedStyle(element);
     return style.display !== 'none' &&
-           style.visibility !== 'hidden' &&
-           element.offsetWidth > 0 &&
-           element.offsetHeight > 0;
+      style.visibility !== 'hidden' &&
+      element.offsetWidth > 0 &&
+      element.offsetHeight > 0;
   }
 
   // 检查是否是搜索输入框
@@ -103,12 +104,26 @@
   // 只对 hostname:port 段做精确匹配（^ $），避免 10.10.1.1 误匹配 10.10.1.10
   function matchUrl(pattern, url) {
     if (!pattern || !url) return false;
+
+    // 实际 URL 只取 hostname:port
     let target = url;
     try {
       const u = new URL(url);
       target = u.hostname + (u.port ? ':' + u.port : '');
-    } catch (e) {}
-    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    } catch (e) { }
+
+    // pattern 若带协议头（http:// / https://），同样只取 hostname:port 部分
+    // 用小写占位符，避免 new URL() 自动小写 hostname 导致还原失败
+    let p = pattern;
+    try {
+      if (/^https?:\/\//i.test(p)) {
+        const u = new URL(p.replace(/\*/g, '__wc__'));
+        p = u.hostname.replace(/__wc__/g, '*') +
+          (u.port ? ':' + u.port : '');
+      }
+    } catch (e) { }
+
+    const escaped = p.replace(/[.+^${}()|[\]\\]/g, '\\$&');
     const regexStr = '^' + escaped.replace(/\*/g, '[a-zA-Z0-9-]+') + '$';
     return new RegExp(regexStr).test(target);
   }
@@ -162,7 +177,7 @@
 
   // 主逻辑
   function autoFill() {
-    chrome.storage.local.get('siteLoginHelper', function(result) {
+    chrome.storage.local.get('siteLoginHelper', function (result) {
       const data = result.siteLoginHelper || { sites: [] };
       const currentUrl = window.location.href;
 
@@ -181,7 +196,7 @@
   // 给页面一点额外时间渲染（有些登录页是动态加载）
   // 用 filled 与 observer 共享状态，避免两者都触发时重复填充
   let filled = false;
-  setTimeout(function() {
+  setTimeout(function () {
     if (!filled) {
       filled = true;
       autoFill();
@@ -189,7 +204,7 @@
   }, 500);
 
   // 同时监听 DOM 变化，处理动态加载的登录框（早于 500ms 出现时优先触发）
-  const observer = new MutationObserver(function(mutations) {
+  const observer = new MutationObserver(function (mutations) {
     if (filled) return;
 
     // 检查是否有密码框出现
@@ -210,7 +225,7 @@
   setTimeout(() => observer.disconnect(), 10000);
 
   // 监听来自 popup 的手动填充消息，直接接收 {username, password}
-  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     if (request.action === 'fill' && request.site) {
       const success = fillLogin(request.site);
       sendResponse({ success: success });
