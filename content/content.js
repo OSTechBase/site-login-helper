@@ -125,15 +125,16 @@
     return null;
   }
 
-  // 执行填充，username/password 任一有值即可，不要求两者都非空
+  // 执行填充，必须有密码框才认定为登录页
   function fillLogin(site) {
     if (!site || (!site.username && !site.password)) return false;
 
     const usernameInput = findUsernameInput();
     const passwordInput = findPasswordInput();
 
-    if (!usernameInput && !passwordInput) {
-      console.log('[站点自动填充] 未找到登录输入框');
+    // 没有密码框说明不是登录页，跳过
+    if (!passwordInput) {
+      console.log('[站点自动填充] 未检测到密码框，跳过填充');
       return false;
     }
 
