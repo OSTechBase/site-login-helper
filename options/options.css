@@ -228,6 +228,33 @@ body {
   margin-right: 6px;
 }
 
+.password-wrap {
+  position: relative;
+}
+
+.password-wrap input {
+  padding-right: 36px;
+}
+
+/* 密码查看按钮 */
+.toggle-pwd {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.toggle-pwd:hover {
+  color: var(--text);
+}
+
 /* 分组样式 */
 .group-section {
   border-bottom: 1px solid var(--border);
