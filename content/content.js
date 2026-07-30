@@ -224,6 +224,28 @@
   // 10秒后停止观察
   setTimeout(() => observer.disconnect(), 10000);
 
+  // 判断输入框是否可作为填充触发目标：
+  // 可见的 text/email 输入框，且不是搜索框
+  // （站点匹配与密码框校验在 autoFill/fillLogin 内完成，这里无需严格识别"账号框"）
+  function isFillTriggerInput(input) {
+    if (!input || input.tagName !== 'INPUT') return false;
+    const type = (input.type || 'text').toLowerCase();
+    if (type !== 'text' && type !== 'email') return false;
+    if (!isVisible(input)) return false;
+    return !isSearchInput(input);
+  }
+
+  // 点击账号输入框时触发填充：
+  // 适用于"登录前的重定向页"等场景 —— 页面加载时还不是登录页，
+  // 加载时机的自动填充不会生效，等用户点击输入框时再尝试匹配填充。
+  // 用捕获阶段监听，防止页面自身阻止事件冒泡。
+  document.addEventListener('click', function (e) {
+    if (!isFillTriggerInput(e.target)) return;
+    // 输入框已有内容时跳过，避免覆盖用户手动输入
+    if (e.target.value) return;
+    autoFill();
+  }, true);
+
   // 监听来自 popup 的手动填充消息，直接接收 {username, password}
   chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     if (request.action === 'fill' && request.site) {
